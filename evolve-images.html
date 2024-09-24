@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PicBreeder-like Evolution</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        .bg-custom-dark { background-color: #121212; }
+        .text-custom-light { color: #e0e0e0; }
+        .hover-effect:hover { transform: translateY(-5px); transition: transform 0.3s ease; }
+        .hover-scale:hover { transform: scale(1.05); transition: transform 0.3s ease; }
+        .grid-square { aspect-ratio: 1/1; }
+        input[type="range"]::-webkit-slider-thumb, input[type="range"]::-moz-range-thumb {
+            appearance: none;
+            width: 15px;
+            height: 15px;
+            background: #e0e0e0;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+            width: 100%;
+            max-width: 500px;
+        }
+        .image-container {
+            width: 100%;
+            padding-bottom: 100%;
+            position: relative;
+        }
+        .image-container img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .main-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 2rem;
+        }
+
+        .image-grid {
+            flex-basis: 50%;
+            max-width: 50%;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .controls-container {
+            flex-basis: 50%;
+            max-width: 50%;
+            margin-right: 0;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .image-grid, .controls-container {
+                flex-basis: 100%;
+                max-width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .image-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body class="bg-custom-dark text-custom-light">
+
+<header class="bg-gray-900 shadow-lg">
+    <nav class="container mx-auto px-6 py-3">
+        <div class="flex justify-between items-center">
+            <div class="text-xl font-semibold">Alex Alvarez</div>
+            <div class="hidden md:flex space-x-6">
+                <a href="index.html" class="hover:text-blue-400 transition">Home</a>
+                <a href="blog.html" class="hover:text-blue-400 transition">Blog</a>
+                <a href="evolve-images.html" class="hover:text-blue-400 transition">Evolve Images</a>
+            </div>
+            <button class="md:hidden focus:outline-none" id="menu-toggle">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
+        </div>
+    </nav>
+    <div class="md:hidden hidden" id="mobile-menu">
+        <a href="index.html" class="block px-4 py-2 hover:bg-gray-700">Home</a>
+        <a href="blog.html" class="block px-4 py-2 hover:bg-gray-700">Blog</a>
+        <a href="evolve-images.html" class="block px-4 py-2 hover:bg-gray-700">Evolve Images</a>
+    </div>
+</header>
+
+<main class="container mx-auto px-6 py-8">
+    <div class="main-content mb-8">
+        <div class="image-grid" id="imageGrid">
+            <!-- Images will be dynamically inserted here -->
+        </div>
+        <div class="controls-container mb-4 md:mb-0 description bg-gray-800 p-6 rounded-lg shadow-md">
+            <h2 class="text-2xl font-semibold mb-4">Evolutionary Algorithm</h2>
+            <p class="text-lg leading-relaxed">
+                This page showcases a very simple evolutionary algorithm. Every time you click on an image it evolves the set of images based on the one you selected, allowing for distinct pseudorandom mutations in each image.
+            </p>
+            <p class="mt-4 text-lg leading-relaxed">
+                It's interesting to note that (unless mutation rate/randomness is very high) the images end up becoming blobs of color of relatively equal size, similar to species stabilizing within their ecosystem.
+            </p>
+
+            <div class="controls-container mb-4 md:mb-0">
+                <div class="mb-4">
+                    <label for="evolutionIntensity" class="block text-lg font-semibold mb-2">Evolution Intensity:</label>
+                    <input type="range" id="evolutionIntensity" min="1" max="100" value="10" class="w-full">
+                    <span id="intensityValue">10</span>
+                </div>
+                <div class="mb-4">
+                    <label for="randomnessSlider" class="block text-lg font-semibold mb-2">Random Mutation Rate:</label>
+                    <input type="range" id="randomnessSlider" min="1" max="100" value="10" class="w-full">
+                    <span id="randomnessValue">10</span>
+                </div>
+                <button id="resetButton" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
+                    Reset Images
+                </button>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer class="bg-gray-900 text-center py-6 mt-16">
+    <p>&copy; 2024 Alex Alvarez. All rights reserved.</p>
+</footer>
+
+<script>
+    const menuToggle = document.getElementById('menu-toggle');
+    const mobileMenu = document.getElementById('mobile-menu');
+
+    menuToggle.addEventListener('click', () => {
+        mobileMenu.classList.toggle('hidden');
+        
+    });
+
+    const NUM_IMAGES = 9;
+    const IMAGE_SIZE = 150;
+    let MUTATION_RATE = 0.01;
+    let RANDOM_MUTATION_RATE = 0.01;
+
+    const intensitySlider = document.getElementById('evolutionIntensity');
+    const intensityValue = document.getElementById('intensityValue');
+    const randomnessSlider = document.getElementById('randomnessSlider');
+    const randomnessValue = document.getElementById('randomnessValue');
+    const resetButton = document.getElementById('resetButton');
+
+    intensitySlider.addEventListener('input', () => {
+        const intensity = intensitySlider.value;
+        MUTATION_RATE = intensity / 100;
+        intensityValue.textContent = intensity;
+    });
+
+    randomnessSlider.addEventListener('input', () => {
+        const randomness = randomnessSlider.value;
+        RANDOM_MUTATION_RATE = randomness / 1000;
+        randomnessValue.textContent = randomness;
+    });
+
+    resetButton.addEventListener('click', () => {
+        populateImages();
+    });
+
+    function getRandomColor() {
+        const letters = '0123456789ABCDEF';
+        let color = '#';
+        for (let i = 0; i < 6; i++) {
+            color += letters[Math.floor(Math.random() * 16)];
+        }
+        return color;
+    }
+
+    function generateRandomImageData() {
+        const canvas = document.createElement('canvas');
+        canvas.width = IMAGE_SIZE;
+        canvas.height = IMAGE_SIZE;
+        const ctx = canvas.getContext('2d');
+
+        const imageData = ctx.createImageData(IMAGE_SIZE, IMAGE_SIZE);
+        for (let i = 0; i < imageData.data.length; i += 4) {
+            imageData.data[i] = Math.random() * 255;
+            imageData.data[i + 1] = Math.random() * 255;
+            imageData.data[i + 2] = Math.random() * 255;
+            imageData.data[i + 3] = 255;
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        return canvas.toDataURL();
+    }
+
+    function mutateImageDataWithNeighborInfluence(imageData) {
+        const width = IMAGE_SIZE;
+        const height = IMAGE_SIZE;
+
+        function getPixelIndex(x, y) {
+            return (y * width + x) * 4;
+        }
+
+        function getNeighborsColor(x, y) {
+            const neighbors = [];
+            if (x > 0) neighbors.push(getPixelColor(x - 1, y));
+            if (x < width - 1) neighbors.push(getPixelColor(x + 1, y));
+            if (y > 0) neighbors.push(getPixelColor(x, y - 1));
+            if (y < height - 1) neighbors.push(getPixelColor(x, y + 1));
+            if (x > 0 && y > 0) neighbors.push(getPixelColor(x - 1, y - 1));
+            if (x < width - 1 && y > 0) neighbors.push(getPixelColor(x + 1, y - 1));
+            if (x > 0 && y < height - 1) neighbors.push(getPixelColor(x - 1, y + 1));
+            if (x < width - 1 && y < height - 1) neighbors.push(getPixelColor(x + 1, y + 1));
+            return neighbors;
+        }
+
+        function getPixelColor(x, y) {
+            const idx = getPixelIndex(x, y);
+            return [imageData.data[idx], imageData.data[idx + 1], imageData.data[idx + 2]];
+        }
+
+        function setPixelColor(x, y, color) {
+            const idx = getPixelIndex(x, y);
+            imageData.data[idx] = color[0];
+            imageData.data[idx + 1] = color[1];
+            imageData.data[idx + 2] = color[2];
+        }
+
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (Math.random() < RANDOM_MUTATION_RATE) {
+                    setPixelColor(x, y, [Math.random() * 255, Math.random() * 255, Math.random() * 255]);
+                } else if (Math.random() < MUTATION_RATE) {
+                    const neighbors = getNeighborsColor(x, y);
+                    const colorFrequencies = {};
+                    neighbors.forEach(color => {
+                        const colorKey = color.join(',');
+                        colorFrequencies[colorKey] = (colorFrequencies[colorKey] || 0) + 1;
+                    });
+                    let dominantColor = null;
+                    let maxCount = -1;
+                    for (const [colorKey, count] of Object.entries(colorFrequencies)) {
+                        if (count > maxCount) {
+                            maxCount = count;
+                            dominantColor = colorKey.split(',').map(Number);
+                        }
+                    }
+                    if (dominantColor) {
+                        setPixelColor(x, y, dominantColor);
+                    }
+                }
+            }
+        }
+        return imageData;
+    }
+
+    function evolveImages(event) {
+        const clickedImage = event.target;
+        const canvas = document.createElement('canvas');
+        canvas.width = IMAGE_SIZE;
+        canvas.height = IMAGE_SIZE;
+        const ctx = canvas.getContext('2d');
+
+        const parentImage = new Image();
+        parentImage.src = clickedImage.src;
+
+        parentImage.onload = () => {
+            ctx.drawImage(parentImage, 0, 0);
+            let imageData = ctx.getImageData(0, 0, IMAGE_SIZE, IMAGE_SIZE);
+
+            populateImages(() => mutateImageDataWithNeighborInfluence(imageData));
+        };
+    }
+
+    function populateImages(mutateFunction) {
+        const imageGrid = document.getElementById('imageGrid');
+        imageGrid.innerHTML = '';
+
+        for (let i = 0; i < NUM_IMAGES; i++) {
+            const imageContainer = document.createElement('div');
+            imageContainer.classList.add('image-container');
+
+            const img = document.createElement('img');
+            img.classList.add('hover-scale', 'rounded-lg', 'shadow-md');
+
+            if (mutateFunction) {
+                const canvas = document.createElement('canvas');
+                canvas.width = IMAGE_SIZE;
+                canvas.height = IMAGE_SIZE;
+                const ctx = canvas.getContext('2d');
+
+                const mutatedData = mutateFunction();
+                ctx.putImageData(mutatedData, 0, 0);
+                img.src = canvas.toDataURL();
+            } else {
+                img.src = generateRandomImageData();
+            }
+
+            img.addEventListener('click', evolveImages);
+            imageContainer.appendChild(img);
+            imageGrid.appendChild(imageContainer);
+        }
+    }
+
+    populateImages();
+</script>
+</body>
+</html>
